@@ -1,0 +1,33 @@
+name: task_management_app
+description: A task management app with theme toggle and SQLite integration.
+
+publish_to: 'none' # Remove this line if you plan to publish to pub.dev
+
+environment:
+  sdk: ">=2.18.0 <3.0.0"
+
+dependencies:
+  provider: ^6.0.4        # For state management (theme switching)
+  sqflite: ^2.0.0+3       # For SQLite database management
+  path: ^1.8.1            # Path package for working with file system paths (used with SQLite)
+  path_provider: ^2.0.10  # For finding file paths to store SQLite database
+  shared_preferences: ^2.0.9
+  intl: ^0.18.0
+  csv: ^5.0.2
+  percent_indicator: ^4.2.3
+  share_plus: ^7.2.1
+  pdf: ^3.10.8
+  printing: ^5.11.1
+  flutter_email_sender: ^6.0.2                    # For saving app preferences like theme (optional)
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+  assets:
+# Add images or assets folder if needed
+
+
