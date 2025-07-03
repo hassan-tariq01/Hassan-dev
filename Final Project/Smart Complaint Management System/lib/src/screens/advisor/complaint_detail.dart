@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 import '../../auth/auth_service.dart';
 import '../../models/complaint.dart';
 import '../../models/complaint_log.dart';
@@ -93,8 +94,10 @@ class _ComplaintDetailState extends State<ComplaintDetail> {
         final currentUser = AuthService().currentUser;
         if (currentUser != null) {
           await SupabaseService().client.from(AppConstants.tableComplaintLogs).insert({
+            'id': const Uuid().v4(),
             'complaint_id': widget.complaintId,
             'user_id': currentUser.id,
+            'advisor_id': currentUser.id, // Since this is advisor adding comment
             'action': AppConstants.actionComment,
             'comment': result,
             'timestamp': DateTime.now().toIso8601String(),
@@ -124,6 +127,7 @@ class _ComplaintDetailState extends State<ComplaintDetail> {
 
         // Add status change log
         await SupabaseService().client.from(AppConstants.tableComplaintLogs).insert({
+          'id': const Uuid().v4(),
           'complaint_id': widget.complaintId,
           'user_id': currentUser.id,
           'action': AppConstants.actionStatusChange,
@@ -155,6 +159,7 @@ class _ComplaintDetailState extends State<ComplaintDetail> {
 
         // Add escalation log
         await SupabaseService().client.from(AppConstants.tableComplaintLogs).insert({
+          'id': const Uuid().v4(),
           'complaint_id': widget.complaintId,
           'user_id': currentUser.id,
           'action': AppConstants.actionEscalation,

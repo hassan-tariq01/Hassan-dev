@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 import '../../auth/auth_service.dart';
 import '../../models/batch.dart';
 import '../../models/user.dart' as app_user;
@@ -110,6 +111,13 @@ class _ComplaintSubmissionState extends State<ComplaintSubmission> {
         'status': AppConstants.statusSubmitted,
       };
 
+      // Double-check that advisor_id matches batch advisor
+      if (_batch!.advisorId != null && _batch!.advisorId != _advisor!.id) {
+        print('Warning: Batch advisor_id (${_batch!.advisorId}) does not match selected advisor (${_advisor!.id})');
+        // Use batch advisor_id instead
+        complaintData['advisor_id'] = _batch!.advisorId;
+      }
+
       final response = await SupabaseService().client
           .from(AppConstants.tableComplaints)
           .insert(complaintData)
@@ -118,18 +126,29 @@ class _ComplaintSubmissionState extends State<ComplaintSubmission> {
 
       // Add submission log
       try {
-        await SupabaseService().client.from(AppConstants.tableComplaintLogs).insert({
-          'complaint_id': response['id'],
-          'user_id': currentUser.id,
-          'action': AppConstants.actionStatusChange,
-          'comment': 'Complaint submitted by student',
-          'timestamp': DateTime.now().toIso8601String(),
-        });
+      await SupabaseService().client.from(AppConstants.tableComplaintLogs).insert({
+        'id': const Uuid().v4(),
+        'complaint_id': response['id'],
+        'user_id': currentUser.id,
+        'advisor_id': complaintData['advisor_id'],
+        'action': AppConstants.actionStatusChange,
+        'comment': 'Complaint submitted by student',
+        'timestamp': DateTime.now().toIso8601String(),
+      });
       } catch (logError) {
         print('Error inserting complaint log: ' + logError.toString());
-        setState(() {
-          _resultMessage = 'Complaint submitted, but failed to log activity. Please contact admin. Error: ' + logError.toString();
-        });
+        
+        // Check if it's an RLS policy error
+        String errorMessage = logError.toString();
+        if (errorMessage.contains('row-level security policy') || errorMessage.contains('RLS')) {
+          setState(() {
+            _resultMessage = 'Complaint submitted successfully! However, there was a security policy issue with logging. This is a database configuration issue that needs to be fixed by the administrator. Please contact admin with error: RLS_POLICY_ERROR';
+          });
+        } else {
+          setState(() {
+            _resultMessage = 'Complaint submitted, but failed to log activity. Please contact admin. Error: ' + errorMessage;
+          });
+        }
         return;
       }
 

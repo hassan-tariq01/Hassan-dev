@@ -198,6 +198,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
           Icons.verified_user,
           () => _showUserAuthStatus(),
         ),
+        _buildFeatureCard(
+          'Database Security (RLS)',
+          'Fix Row Level Security policy issues',
+          Icons.security,
+          () => _showRLSFixGuide(),
+        ),
       ],
     );
   }
@@ -322,11 +328,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Email Confirmation Help'),
-        content: const SingleChildScrollView(
+        content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: [
+            children: const [
               Text(
                 'Email Confirmation Issues:',
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -388,10 +394,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Quick Fix: Disable Email Confirmation'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          children: const [
             Text(
               'Follow these steps to fix the "email not confirmed" error:',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -414,6 +420,151 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ),
           ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Got it!'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRLSFixGuide() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Fix RLS Policy Issues'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Error: "new row violates row-level security policy for table complaint_logs"',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Quick Fix (Development):',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text('1. Go to Supabase Dashboard'),
+              const Text('2. Click "Table Editor"'),
+              const Text('3. Select "complaint_logs" table'),
+              const Text('4. Click "Settings" tab'),
+              const Text('5. Toggle OFF "Enable Row Level Security"'),
+              const Text('6. Click "Save"'),
+              const SizedBox(height: 16),
+              const Text(
+                'Production Fix (SQL):',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text('Run this SQL in Supabase SQL Editor:'),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'CREATE POLICY "Enable insert for authenticated users" ON complaint_logs\n'
+                  'FOR INSERT WITH CHECK (auth.role() = \'authenticated\');',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '⚠️ Note: Disabling RLS removes security restrictions. Use proper policies for production!',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showDetailedRLSGuide();
+            },
+            child: const Text('Detailed Guide'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDetailedRLSGuide() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Complete RLS Policy Setup'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Complete SQL for complaint_logs RLS policies:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  '-- Drop existing policies\n'
+                  'DROP POLICY IF EXISTS "Enable insert for authenticated users" ON complaint_logs;\n'
+                  'DROP POLICY IF EXISTS "Enable select for authenticated users" ON complaint_logs;\n'
+                  'DROP POLICY IF EXISTS "Enable update for authenticated users" ON complaint_logs;\n\n'
+                  '-- Create insert policy\n'
+                  'CREATE POLICY "Enable insert for authenticated users" ON complaint_logs\n'
+                  'FOR INSERT WITH CHECK (auth.role() = \'authenticated\');\n\n'
+                  '-- Create select policy\n'
+                  'CREATE POLICY "Enable select for authenticated users" ON complaint_logs\n'
+                  'FOR SELECT USING (auth.role() = \'authenticated\');\n\n'
+                  '-- Create update policy\n'
+                  'CREATE POLICY "Enable update for authenticated users" ON complaint_logs\n'
+                  'FOR UPDATE USING (auth.uid() = user_id);',
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Steps:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text('1. Go to Supabase Dashboard > SQL Editor'),
+              const Text('2. Copy and paste the SQL above'),
+              const Text('3. Click "Run"'),
+              const Text('4. Test complaint submission'),
+              const Text('5. Check if logs are created successfully'),
+            ],
+          ),
         ),
         actions: [
           TextButton(

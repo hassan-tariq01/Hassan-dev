@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 import '../../auth/auth_service.dart';
 import '../../models/complaint.dart';
 import '../../models/complaint_log.dart';
@@ -93,6 +94,7 @@ class _ComplaintDetailState extends State<ComplaintDetail> {
         final currentUser = AuthService().currentUser;
         if (currentUser != null) {
           await SupabaseService().client.from(AppConstants.tableComplaintLogs).insert({
+            'id': const Uuid().v4(),
             'complaint_id': widget.complaintId,
             'user_id': currentUser.id,
             'action': AppConstants.actionComment,
@@ -163,6 +165,7 @@ class _ComplaintDetailState extends State<ComplaintDetail> {
 
           // Add resolution log
           await SupabaseService().client.from(AppConstants.tableComplaintLogs).insert({
+            'id': const Uuid().v4(),
             'complaint_id': widget.complaintId,
             'user_id': currentUser.id,
             'action': AppConstants.actionStatusChange,
@@ -234,6 +237,7 @@ class _ComplaintDetailState extends State<ComplaintDetail> {
 
           // Add rejection log
           await SupabaseService().client.from(AppConstants.tableComplaintLogs).insert({
+            'id': const Uuid().v4(),
             'complaint_id': widget.complaintId,
             'user_id': currentUser.id,
             'action': AppConstants.actionStatusChange,

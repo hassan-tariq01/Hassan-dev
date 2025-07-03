@@ -5,6 +5,7 @@ import '../../services/supabase_service.dart';
 import '../../utils/constants.dart';
 import '../../utils/routes.dart';
 
+
 class HODDashboard extends StatefulWidget {
   const HODDashboard({Key? key}) : super(key: key);
 
@@ -16,6 +17,8 @@ class _HODDashboardState extends State<HODDashboard> {
   bool _isLoading = true;
   Map<String, int> _stats = {};
   String? _hodName;
+  List<Map<String, dynamic>> _batches = [];
+  List<Map<String, dynamic>> _advisors = [];
 
   @override
   void initState() {
@@ -46,6 +49,10 @@ class _HODDashboardState extends State<HODDashboard> {
           filters: {'status': AppConstants.statusEscalatedToHOD},
         );
 
+        // Get all batches and advisors
+        final batchesData = await SupabaseService().getBatches();
+        final advisorsData = await SupabaseService().getUsers(role: AppConstants.roleBatchAdvisor);
+
         setState(() {
           _stats = {
             'escalated_complaints': complaints.length,
@@ -53,6 +60,8 @@ class _HODDashboardState extends State<HODDashboard> {
             'rejected': complaints.where((c) => c['status'] == AppConstants.statusRejected).length,
             'pending_review': complaints.where((c) => c['status'] == AppConstants.statusEscalatedToHOD).length,
           };
+          _batches = batchesData;
+          _advisors = advisorsData;
         });
       }
     } catch (e) {
@@ -92,6 +101,7 @@ class _HODDashboardState extends State<HODDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 16),
             Text(
               'Welcome, ${_hodName ?? 'HOD'}!',
               style: Theme.of(context).textTheme.headlineSmall,
@@ -108,6 +118,8 @@ class _HODDashboardState extends State<HODDashboard> {
             _buildStatsGrid(),
             const SizedBox(height: 32),
             _buildFeatureCards(),
+            const SizedBox(height: 32),
+            _buildBatchesAndAdvisorsSection(),
           ],
         ),
       ),
@@ -206,6 +218,137 @@ class _HODDashboardState extends State<HODDashboard> {
         trailing: const Icon(Icons.arrow_forward_ios),
         onTap: onTap,
       ),
+    );
+  }
+
+  Widget _buildBatchesAndAdvisorsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Department Overview',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 16),
+        
+        // Batches Section
+        Card(
+          child: ExpansionTile(
+            leading: const Icon(Icons.class_, color: Color(AppConstants.primaryColor)),
+            title: Text('All Batches (${_batches.length})'),
+            subtitle: const Text('View all batches in the department'),
+            children: [
+              if (_batches.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('No batches found', style: TextStyle(color: Colors.grey)),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _batches.length,
+                  itemBuilder: (context, index) {
+                    final batch = _batches[index];
+                    final hasAdvisor = batch['advisor_id'] != null && batch['advisor_id'].toString().isNotEmpty;
+                    final advisor = hasAdvisor 
+                        ? _advisors.where((a) => a['id'] == batch['advisor_id']).firstOrNull
+                        : null;
+                    
+                    return ListTile(
+                      leading: Icon(
+                        hasAdvisor ? Icons.check_circle : Icons.warning,
+                        color: hasAdvisor ? Colors.green : Colors.orange,
+                      ),
+                      title: Text(batch['name'] ?? 'Unknown Batch'),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Department: Computer Science'),
+                          if (hasAdvisor && advisor != null)
+                            Text('Advisor: ${advisor['name']} (${advisor['email']})')
+                          else
+                            const Text('Advisor: Not Assigned', style: TextStyle(color: Colors.orange)),
+                        ],
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: hasAdvisor ? Colors.green : Colors.orange,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          hasAdvisor ? 'Assigned' : 'Unassigned',
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Advisors Section
+        Card(
+          child: ExpansionTile(
+            leading: const Icon(Icons.people, color: Color(AppConstants.primaryColor)),
+            title: Text('All Advisors (${_advisors.length})'),
+            subtitle: const Text('View all batch advisors'),
+            children: [
+              if (_advisors.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('No advisors found', style: TextStyle(color: Colors.grey)),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _advisors.length,
+                  itemBuilder: (context, index) {
+                    final advisor = _advisors[index];
+                    final assignedBatch = _batches.where((b) => b['advisor_id'] == advisor['id']).firstOrNull;
+                    
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: const Color(AppConstants.primaryColor),
+                        child: Text(
+                          (advisor['name'] ?? 'A')[0].toUpperCase(),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      title: Text(advisor['name'] ?? 'Unknown Advisor'),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Email: ${advisor['email'] ?? 'N/A'}'),
+                          if (assignedBatch != null)
+                            Text('Assigned to: ${assignedBatch['name']}')
+                          else
+                            const Text('Not assigned to any batch', style: TextStyle(color: Colors.orange)),
+                        ],
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: assignedBatch != null ? Colors.green : Colors.orange,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          assignedBatch != null ? 'Assigned' : 'Unassigned',
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -117,6 +117,9 @@ class _HODManagementState extends State<HODManagement> {
           'name': nameController.text.trim(),
           'email': emailController.text.trim(),
           'role': AppConstants.roleHOD,
+          'department_id': AppConstants.singleDepartmentId,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
         });
         _loadHODs();
         setState(() {
@@ -127,6 +130,51 @@ class _HODManagementState extends State<HODManagement> {
           _resultMessage = 'Error creating HOD: $e';
         });
       }
+    }
+  }
+
+  Future<void> _fixHODAccounts() async {
+    try {
+      setState(() => _isLoading = true);
+      
+      // Get all HOD accounts without department_id
+      final allHods = await SupabaseService().client
+          .from(AppConstants.tableUsers)
+          .select()
+          .eq('role', AppConstants.roleHOD);
+      
+      final hodsWithoutDept = allHods.where((hod) => 
+          hod['department_id'] == null || hod['department_id'].toString().isEmpty
+      ).toList();
+      
+      if (hodsWithoutDept.isEmpty) {
+        setState(() {
+          _resultMessage = 'All HOD accounts are properly configured!';
+        });
+        return;
+      }
+      
+      // Update all HOD accounts to have department_id
+      for (final hod in hodsWithoutDept) {
+        await SupabaseService().client
+            .from(AppConstants.tableUsers)
+            .update({
+              'department_id': AppConstants.singleDepartmentId,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', hod['id']);
+      }
+      
+      _loadHODs();
+      setState(() {
+        _resultMessage = 'Fixed ${hodsWithoutDept.length} HOD account(s)!';
+      });
+    } catch (e) {
+      setState(() {
+        _resultMessage = 'Error fixing HOD accounts: $e';
+      });
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -181,17 +229,21 @@ class _HODManagementState extends State<HODManagement> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Create and Manage HOD Accounts',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
+          : SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            Text(
+              'Welcome, ${_hodName ?? 'HOD'}!',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
                     onPressed: _addHOD,
                     icon: const Icon(Icons.add),
                     label: const Text('Create HOD Account'),
@@ -200,40 +252,76 @@ class _HODManagementState extends State<HODManagement> {
                       foregroundColor: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  Expanded(
-                    child: _hods.isEmpty
-                        ? const Center(child: Text('No HOD accounts found.'))
-                        : ListView.builder(
-                            itemCount: _hods.length,
-                            itemBuilder: (context, index) {
-                              final hod = _hods[index];
-                              return Card(
-                                child: ListTile(
-                                  title: Text(hod['name'] ?? ''),
-                                  subtitle: Text(hod['email'] ?? ''),
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () => _deleteHOD(hod['id']),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _fixHODAccounts,
+                    icon: const Icon(Icons.build),
+                    label: const Text('Fix HOD Accounts'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: _hods.isEmpty
+                  ? const Center(child: Text('No HOD accounts found.'))
+                  : ListView.builder(
+                      itemCount: _hods.length,
+                      itemBuilder: (context, index) {
+                        final hod = _hods[index];
+                        final hasDepartment = hod['department_id'] != null && hod['department_id'].toString().isNotEmpty;
+                        return Card(
+                          child: ListTile(
+                            leading: Icon(
+                              hasDepartment ? Icons.check_circle : Icons.warning,
+                              color: hasDepartment ? Colors.green : Colors.orange,
+                            ),
+                            title: Text(hod['name'] ?? ''),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(hod['email'] ?? ''),
+                                Text(
+                                  hasDepartment ? '✅ Properly Configured' : '⚠️ Missing Department',
+                                  style: TextStyle(
+                                    color: hasDepartment ? Colors.green : Colors.orange,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
                                   ),
                                 ),
-                              );
-                            },
+                              ],
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteHOD(hod['id']),
+                            ),
                           ),
-                  ),
-                  if (_resultMessage != null) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      _resultMessage!,
-                      style: TextStyle(
-                        color: _resultMessage!.startsWith('Error') ? Colors.red : Colors.green,
-                        fontWeight: FontWeight.bold,
-                      ),
+                        );
+                      },
                     ),
-                  ],
-                ],
-              ),
             ),
+            if (_resultMessage != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                _resultMessage!,
+                style: TextStyle(
+                  color: _resultMessage!.startsWith('Error') ? Colors.red : Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
+}
+
+class _hodName {
 } 
