@@ -1,5 +1,6 @@
 Smart Complaint Management System (SCMS)
-📘 Hassan-FA22_BSE-028
+
+ Hassan-FA22_BSE-028
 This repo is for Flutter tasks.
 
 1. Project Overview
